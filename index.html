@@ -145,6 +145,7 @@ kbd{font-family:monospace;background:#00000015;border:1px solid #8a6b3a;border-r
     <button class="btn ghost" id="btnNew">عالم جديد</button>
     <button class="btn ghost" id="btnHelp">طريقة اللعب</button>
     <div class="note" id="savenote"></div>
+    <div class="note" id="touchnote" hidden>هذه اللعبة تحتاج إلى لوحة مفاتيح وفأرة — جرّبها على الحاسوب.</div>
   </div>
 </div>
 
@@ -222,8 +223,12 @@ kbd{font-family:monospace;background:#00000015;border:1px solid #8a6b3a;border-r
   </div>
 </div>
 
+<script>
+if(matchMedia('(pointer: coarse)').matches&&!matchMedia('(any-pointer: fine)').matches)document.getElementById('touchnote').hidden=false;
+setTimeout(()=>{if(!window.__badiyahReady){const m=document.getElementById('genmsg');if(m)m.textContent='تعذّر تحميل اللعبة. تأكّد من اتصالك بالإنترنت ومن دعم متصفحك لـ WebGL، ثم أعد تحميل الصفحة.';}},20000);
+</script>
 <script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js';
 
 // ---------- helpers ----------
 const $=id=>document.getElementById(id);
@@ -717,7 +722,9 @@ const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.08,420);
 camera.rotation.order='YXZ';
 scene.add(camera);
-const renderer=new THREE.WebGLRenderer({antialias:true});
+let renderer;
+try{renderer=new THREE.WebGLRenderer({antialias:true});}catch(err){$('genmsg').textContent='متصفحك أو جهازك لا يدعم WebGL، لذا لا يمكن تشغيل اللعبة هنا.';throw err;}
+window.__badiyahReady=true;
 renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 $('game').appendChild(renderer.domElement);
@@ -2211,7 +2218,7 @@ function startWorld(save){
     });
 }
 // ---------- main loop ----------
-let last=performance.now(),saveTimer=0;
+let last=performance.now(),saveTimer=0,idleFrames=0;
 function tick(dt){
   const playing=state==='playing';
   if(playing){
@@ -2229,7 +2236,8 @@ function tick(dt){
   updateParts(dt);
   updateHeld(dt);
   updateSky(dt,playing);
-  if(state!=='title')renderer.render(scene,camera);  // title sheet is opaque
+  // title sheet is opaque; overlays (paused/panel/dead) only need ~10fps
+  if(state!=='title'&&(playing||(++idleFrames%6===0)))renderer.render(scene,camera);
 }
 function frame(now){
   requestAnimationFrame(frame);
@@ -2237,7 +2245,7 @@ function frame(now){
   tick(dt);
 }
 // debug/test hook (harmless in normal play; used for pane-throttled rAF testing)
-window.OC={P,keys,mouse,inv,edits,mounts,MOUNT_KINDS,
+if(new URLSearchParams(location.search).has('debug'))window.OC={P,keys,mouse,inv,edits,mounts,MOUNT_KINDS,
   get hotbar(){return hotbar},get state(){return state},
   get riding(){return riding},get creative(){return creative},get flying(){return flying},
   get sprinting(){return sprinting},
